@@ -1,6 +1,6 @@
 {
   "name": "@pollit/twin-dev-bot",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Slack bot that runs Claude Code via thread-based conversations",
   "type": "module",
   "bin": {
@@ -31,6 +31,14 @@
     "automation"
   ],
   "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hyeonseungk/twin-dev-bot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hyeonseungk/twin-dev-bot/issues"
+  },
+  "homepage": "https://github.com/hyeonseungk/twin-dev-bot#readme",
   "engines": {
     "node": ">=18"
   },
