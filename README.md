@@ -1,7 +1,7 @@
 # TwinDevBot
 
 <p align="center">
-  <img src="logo.png" alt="TwinDevBot" width="150" />
+  <img src="https://raw.githubusercontent.com/hyeonseungk/twin-dev-bot/main/logo.png" alt="TwinDevBot" width="150" />
 </p>
 
 A **Slack bot** that lets you develop with **Claude Code** through Slack conversations — **from anywhere**.
@@ -76,7 +76,7 @@ You need to create a Slack App in your workspace. This is a one-time setup.
 3. Fill in:
    - **Command:** `/twindevbot`
    - **Short Description:** `TwinDevBot Commands`
-   - **Usage Hint:** `init | task | new | stop`
+   - **Usage Hint:** `help | init | task | new | stop`
 4. Click **"Save"**
 
 ### 1.4 Set Bot Permissions

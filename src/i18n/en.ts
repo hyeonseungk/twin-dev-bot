@@ -71,7 +71,7 @@ const _en = {
   "command.taskSuccess": ":file_folder: Working on `{{dirName}}`.\nWhat would you like to work on?",
 
   // help
-  "command.help": ":robot_face: *TwinDevBot Commands*\nDevelop with Claude Code from anywhere.\n\n:warning:  *Before you start:* Invite the bot to this channel first (`/invite @TwinDevBot`). The bot must be a channel member to receive your messages.\n\n\n:wrench:  *Set up channel*\n`/twindevbot init`\nSelect or enter a working directory for this channel.\n\n\n:rocket:  *Start a task*\n`/twindevbot task`\n`/twindevbot task --autopilot`\nStart a new Claude session in the channel's working directory.\n\n\n:hammer_and_wrench:  *Create project*\n`/twindevbot new <directory> --empty`\n`/twindevbot new <directory> --template <framework>`\n`/twindevbot new <directory> --template <framework> --autopilot`\n{{templates}}\n\n\n:octagonal_sign:  *Stop running task*\n`/twindevbot stop`\nCancel the currently running Claude task.\n\n\n:bulb:  *Notes*\n* Use `init` once per channel to link it to a project directory.\n* Use `task` to start a new task thread.\n* `--autopilot` mode: twindevbot automatically answers all questions and develops on its own.",
+  "command.help": ":robot_face: *TwinDevBot Commands*\nDevelop with Claude Code from anywhere.\n\n:warning:  *Before you start:* Invite the bot to this channel first (`/invite @TwinDevBot`). The bot must be a channel member to receive your messages.\n\n:wrench:  *Set up channel*\n`/twindevbot init`\nSelect or enter a working directory for this channel.\n\n:rocket:  *Start a task*\n`/twindevbot task`\n`/twindevbot task --autopilot`\nStart a new Claude session in the channel's working directory.\n\n:hammer_and_wrench:  *Create project*\n`/twindevbot new <directory> --empty`\n`/twindevbot new <directory> --template <framework>`\n`/twindevbot new <directory> --template <framework> --autopilot`\n{{templates}}\n\n:octagonal_sign:  *Stop running task*\n`/twindevbot stop`\nCancel the currently running Claude task.\n\n:bulb:  *Notes*\n* Use `init` once per channel to link it to a project directory.\n* Use `task` to start a new task thread.\n* `--autopilot` mode: twindevbot automatically answers all questions and develops on its own.\n\n",
 
   // slack-message.ts
   "slack.answered": "Answer submitted",
@@ -120,7 +120,7 @@ const _en = {
   "cli.usage": "Usage:",
   "cli.commands": "Commands:",
   "cli.cmd.start": "Start server (foreground)",
-  "cli.cmd.startDaemon": "Register and start as background service (macOS launchd / Windows Task Scheduler)",
+  "cli.cmd.startDaemon": "Register and start as background service (macOS launchd)",
   "cli.cmd.stop": "Stop and unregister background service",
   "cli.cmd.status": "Check background service status",
   "cli.cmd.show": "Show saved sessions",
