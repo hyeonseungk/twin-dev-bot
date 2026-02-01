@@ -1,7 +1,7 @@
 # TwinDevBot
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/hyeonseungk/twin-dev-bot/main/logo.png" alt="TwinDevBot" width="150" />
+  <img src="https://raw.githubusercontent.com/hyeonseungk/twin-dev-bot/main/asset/logo.png" alt="TwinDevBot" width="150" />
 </p>
 
 A **Slack bot** that lets you develop with **Claude Code** through Slack conversations — **from anywhere**.
@@ -9,6 +9,11 @@ A **Slack bot** that lets you develop with **Claude Code** through Slack convers
 TwinDevBot connects your Slack workspace to Claude Code running on your machine. You send messages in Slack threads, and Claude Code works on your local codebase in real time.
 
 ## When is this useful?
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/hyeonseungk/twin-dev-bot/main/asset/usage1.jpg" width="49%" />
+  <img src="https://raw.githubusercontent.com/hyeonseungk/twin-dev-bot/main/asset/usage2.jpg" width="49%" />
+</p>
 
 - You want to give Claude Code development tasks **remotely** (e.g. from your phone or another computer)
 - You want to manage multiple projects through **separate Slack channels**
