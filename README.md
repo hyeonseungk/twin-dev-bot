@@ -24,6 +24,8 @@ TwinDevBot connects your Slack workspace to Claude Code running on your machine.
 
 ## Requirements
 
+**TwinDevBot is currently only available on macOS.**
+
 Before you begin, make sure you have the following:
 
 1. **Node.js 18 or later**
@@ -35,9 +37,8 @@ Before you begin, make sure you have the following:
    - Install with: `npm install -g @anthropic-ai/claude-code`
    - Verify by running: `claude --version`
 
-3. **macOS for background service**
-   - `twindevbot start --daemon`, `stop`, and `status` are supported on macOS (launchd)
-   - On other platforms, run in the foreground with `twindevbot start`
+3. **Background service**
+   - `twindevbot start --daemon`, `stop`, and `status` are supported (macOS launchd)
 
 4. **A Slack workspace** where you have permission to install apps
 
@@ -60,9 +61,13 @@ You need to create a Slack App in your workspace. This is a one-time setup.
 1. In the left sidebar, click **"Socket Mode"**
 2. Toggle **"Enable Socket Mode"** to ON
 3. You will be asked to create an **App-Level Token**:
+   - Enter a name for the token (e.g., `twindevbot-socket`)
    - Add the `connections:write` scope
    - Click **"Generate"**
-4. **Copy the token** (starts with `xapp-`) — you will need this later
+4. **Copy the token** (starts with `xapp-`)
+
+> [!CAUTION]
+> You will need this later. Save it somewhere safe now.
 
 ### 1.3 Add a Slash Command
 
@@ -111,7 +116,10 @@ You need to create a Slack App in your workspace. This is a one-time setup.
 1. In the left sidebar, click **"Install App"**
 2. Click **"Install to Workspace"**
 3. Review the permissions and click **"Allow"**
-4. **Copy the Bot Token** (starts with `xoxb-`) — you will need this later
+4. **Copy the Bot Token** (starts with `xoxb-`)
+
+> [!CAUTION]
+> You will need this later. Save it somewhere safe now.
 
 ---
 
@@ -120,7 +128,7 @@ You need to create a Slack App in your workspace. This is a one-time setup.
 Open your terminal and run:
 
 ```bash
-npm install -g twin-dev-bot
+npm install -g @pollit/twin-dev-bot
 ```
 
 Verify the installation:
