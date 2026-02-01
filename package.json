@@ -1,6 +1,6 @@
 {
   "name": "@pollit/twin-dev-bot",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Slack bot that runs Claude Code via thread-based conversations",
   "type": "module",
   "bin": {

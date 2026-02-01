@@ -4,7 +4,7 @@
   <img src="logo.png" alt="TwinDevBot" width="150" />
 </p>
 
-A **Slack** bot that lets you develop with **Claude Code** through Slack conversations — **from anywhere**.
+A **Slack bot** that lets you develop with **Claude Code** through Slack conversations — **from anywhere**.
 
 TwinDevBot connects your Slack workspace to Claude Code running on your machine. You send messages in Slack threads, and Claude Code works on your local codebase in real time.
 
@@ -80,13 +80,13 @@ You need to create a Slack App in your workspace. This is a one-time setup.
 2. Scroll down to **"Scopes"** → **"Bot Token Scopes"**
 3. Click **"Add an OAuth Scope"** and add all of the following:
 
-| Scope | What it's for |
-|-------|---------------|
-| `chat:write` | Send messages to channels |
-| `commands` | Handle the `/twindevbot` slash command |
-| `reactions:write` | Add emoji reactions to show progress |
-| `channels:history` | Read messages in public channels |
-| `groups:history` | Read messages in private channels |
+| Scope              | What it's for                          |
+| ------------------ | -------------------------------------- |
+| `chat:write`       | Send messages to channels              |
+| `commands`         | Handle the `/twindevbot` slash command |
+| `reactions:write`  | Add emoji reactions to show progress   |
+| `channels:history` | Read messages in public channels       |
+| `groups:history`   | Read messages in private channels      |
 
 ### 1.5 Enable Event Subscriptions
 
@@ -232,10 +232,10 @@ This creates the project in your base directory, sets it as the channel's workin
 
 **Available templates:**
 
-| Category | Templates |
-|----------|-----------|
+| Category | Templates                                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------- |
 | Frontend | `react`, `nextjs`, `vue`, `nuxt`, `sveltekit`, `angular`, `react-native-expo`, `react-native-bare`, `flutter` |
-| Backend | `express`, `nestjs`, `fastify`, `spring-boot`, `django`, `fastapi`, `go`, `rails`, `laravel` |
+| Backend  | `express`, `nestjs`, `fastify`, `spring-boot`, `django`, `fastapi`, `go`, `rails`, `laravel`                  |
 
 ### Autopilot Mode
 
@@ -252,6 +252,7 @@ Or with a new project:
 ```
 
 In Autopilot mode:
+
 - Claude automatically selects the recommended option for each question
 - All questions and auto-selected answers are logged in the thread for your review
 - You can **interrupt** Autopilot by sending a message in the thread — you'll be asked to confirm before it stops
@@ -319,13 +320,13 @@ INACTIVITY_TIMEOUT_MINUTES=60
 
 All settings are stored in the `.env` file in the directory where you started TwinDevBot.
 
-| Variable | Required | Description | Default |
-|----------|----------|-------------|---------|
-| `SLACK_BOT_TOKEN` | Yes | Slack Bot Token (`xoxb-...`) | — |
-| `SLACK_APP_TOKEN` | Yes | Slack App Token (`xapp-...`) | — |
-| `TWINDEVBOT_BASE_DIR` | No | Parent directory for projects | Home Desktop |
-| `INACTIVITY_TIMEOUT_MINUTES` | No | Minutes before idle Claude is stopped | `30` |
-| `LOG_LEVEL` | No | `debug` \| `info` \| `warn` \| `error` | `info` |
+| Variable                     | Required | Description                            | Default      |
+| ---------------------------- | -------- | -------------------------------------- | ------------ |
+| `SLACK_BOT_TOKEN`            | Yes      | Slack Bot Token (`xoxb-...`)           | —            |
+| `SLACK_APP_TOKEN`            | Yes      | Slack App Token (`xapp-...`)           | —            |
+| `TWINDEVBOT_BASE_DIR`        | No       | Parent directory for projects          | Home Desktop |
+| `INACTIVITY_TIMEOUT_MINUTES` | No       | Minutes before idle Claude is stopped  | `30`         |
+| `LOG_LEVEL`                  | No       | `debug` \| `info` \| `warn` \| `error` | `info`       |
 
 ---
 
@@ -333,15 +334,15 @@ All settings are stored in the `.env` file in the directory where you started Tw
 
 TwinDevBot stores its data in the directory where you started the server:
 
-| File | Purpose |
-|------|---------|
-| `.env` | Configuration (Slack tokens, settings) |
-| `data/sessions.json` | Saved Claude Code sessions |
-| `data/workspaces.json` | Thread-to-directory mappings |
-| `data/channels.json` | Channel-to-directory mappings |
-| `data/twindevbot.pid` | Server process ID |
-| `logs/twindevbot.err.log` | Error log |
-| `logs/twindevbot.out.log` | Output log |
+| File                      | Purpose                                |
+| ------------------------- | -------------------------------------- |
+| `.env`                    | Configuration (Slack tokens, settings) |
+| `data/sessions.json`      | Saved Claude Code sessions             |
+| `data/workspaces.json`    | Thread-to-directory mappings           |
+| `data/channels.json`      | Channel-to-directory mappings          |
+| `data/twindevbot.pid`     | Server process ID                      |
+| `logs/twindevbot.err.log` | Error log                              |
+| `logs/twindevbot.out.log` | Output log                             |
 
 ---
 
