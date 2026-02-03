@@ -11,8 +11,8 @@ TwinDevBot connects your Slack workspace to Claude Code running on your machine.
 ## When is this useful?
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/hyeonseungk/twin-dev-bot/main/asset/usage0.jpg" width="49%" />
   <img src="https://raw.githubusercontent.com/hyeonseungk/twin-dev-bot/main/asset/usage1.jpg" width="49%" />
-  <img src="https://raw.githubusercontent.com/hyeonseungk/twin-dev-bot/main/asset/usage2.jpg" width="49%" />
 </p>
 
 - You want to give Claude Code development tasks **remotely** (e.g. from your phone or another computer)
