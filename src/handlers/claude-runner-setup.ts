@@ -441,6 +441,12 @@ export function setupClaudeRunner(options: SetupClaudeRunnerOptions): void {
       }
     })();
     await resultPromise;
+
+    // result 이벤트 후 프로세스가 확실히 종료되도록 명시적으로 kill 호출
+    // (result 이벤트는 Claude가 작업을 완료했음을 의미하므로 안전하게 종료 가능)
+    // kill()은 exit 이벤트를 발생시켜 cleanup(unregisterRunner 등)이 수행됨
+    log.info("Killing Claude process after result received", { projectName });
+    runner.kill();
   }, "result"));
 
   runner.on("error", safeAsync(async (error) => {
