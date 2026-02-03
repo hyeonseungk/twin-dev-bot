@@ -7,6 +7,7 @@ import { setupClaudeRunner, type SetupClaudeRunnerOptions } from "./claude-runne
 import { toggleOption, getSelectedOptions, clearState, initState, getState } from "../stores/multi-select-state.js";
 import { isRunnerActive, killActiveRunner } from "../claude/active-runners.js";
 import { t } from "../i18n/index.js";
+import { config } from "../core/config.js";
 import {
   hasPendingBatch,
   recordAnswerAndAdvance,
@@ -26,6 +27,8 @@ import type { ClaudeSession } from "../claude/session-manager.js";
 import { getWorkspace } from "../stores/workspace-store.js";
 import { getPayload, removePayload, setPayload } from "../stores/action-payload-store.js";
 import type { StoredQuestionPayload } from "../types/index.js";
+import type { SlackFileInfo } from "../types/index.js";
+import { downloadSlackFiles, type DownloadedFile } from "../utils/slack-file-downloader.js";
 
 const log = createLogger("question-handlers");
 
@@ -33,6 +36,11 @@ const log = createLogger("question-handlers");
 // Race condition 방지: 동일 스레드에서 동시 resumeClaudeWithAnswer 호출 방지
 // ─────────────────────────────────────────────────────────────────────────
 const pendingResumes = new Set<string>();
+
+interface InterruptPayload {
+  text: string;
+  files?: SlackFileInfo[];
+}
 
 interface SessionLookupResult {
   session: ClaudeSession;
@@ -120,6 +128,48 @@ async function postInterruptPayloadMissingNotice(
     });
   } catch (error) {
     log.error("Failed to send interrupt payload missing notice", error);
+  }
+}
+
+async function downloadInterruptFiles(
+  client: WebClient,
+  channelId: string,
+  threadTs: string,
+  slackFiles: SlackFileInfo[]
+): Promise<DownloadedFile[]> {
+  if (slackFiles.length === 0) return [];
+
+  try {
+    const downloadResult = await downloadSlackFiles(slackFiles, config.slack.botToken);
+    const downloadedFiles = downloadResult.success;
+
+    const warnings: string[] = [];
+    for (const f of downloadResult.failed) {
+      warnings.push(`\u274C ${f.file.name}: ${f.error}`);
+    }
+    for (const f of downloadResult.skipped) {
+      warnings.push(`\u26A0\uFE0F ${f.file.name}: ${f.reason}`);
+    }
+
+    if (warnings.length > 0) {
+      await postThreadMessage(
+        client,
+        channelId,
+        `Some files could not be processed:\n${warnings.join("\n")}`,
+        threadTs
+      );
+    }
+
+    return downloadedFiles;
+  } catch (error) {
+    log.error("Failed to download interrupt files", error);
+    await postThreadMessage(
+      client,
+      channelId,
+      `\u274C Failed to download attached files: ${error instanceof Error ? error.message : String(error)}`,
+      threadTs
+    );
+    return [];
   }
 }
 
@@ -753,10 +803,20 @@ export function registerQuestionHandlers(app: App): void {
           return;
         }
 
-        // userMessage를 payload store에서 조회
+        // userMessage + 첨부 파일을 payload store에서 조회
         const payloadKey = buildInterruptPayloadKey(threadTs, userMessageTs);
-        const userMessage = getPayload<string>(payloadKey, true) ?? "";
-        if (!userMessage.trim()) {
+        const payload = getPayload<InterruptPayload | string>(payloadKey, true);
+        const userMessage = typeof payload === "string" ? payload : payload?.text ?? "";
+        const slackFiles = typeof payload === "string" ? [] : payload?.files ?? [];
+
+        if (!userMessage.trim() && slackFiles.length === 0) {
+          await postInterruptPayloadMissingNotice(client, channelId, body.user.id, threadTs);
+          return;
+        }
+
+        const downloadedFiles = await downloadInterruptFiles(client, channelId, threadTs, slackFiles);
+        const prompt = userMessage.trim() || (downloadedFiles.length > 0 ? "Please analyze the attached file(s)." : "");
+        if (!prompt) {
           await postInterruptPayloadMissingNotice(client, channelId, body.user.id, threadTs);
           return;
         }
@@ -768,9 +828,10 @@ export function registerQuestionHandlers(app: App): void {
             threadTs: session.slackThreadTs,
             directory: session.directory,
             projectName: session.projectName,
-            prompt: userMessage,
+            prompt,
             sessionId: session.sessionId,
             autopilot: session.autopilot,
+            files: downloadedFiles.length > 0 ? downloadedFiles : undefined,
           });
         } else if (workspace) {
           setupClaudeRunner({
@@ -779,8 +840,9 @@ export function registerQuestionHandlers(app: App): void {
             threadTs,
             directory: workspace.directory,
             projectName: workspace.projectName,
-            prompt: userMessage,
+            prompt,
             autopilot: workspace.autopilot,
+            files: downloadedFiles.length > 0 ? downloadedFiles : undefined,
           });
         }
       } catch (error) {
@@ -894,10 +956,20 @@ export function registerQuestionHandlers(app: App): void {
           return;
         }
 
-        // userMessage를 payload store에서 조회
+        // userMessage + 첨부 파일을 payload store에서 조회
         const payloadKey = buildInterruptPayloadKey(threadTs, userMessageTs);
-        const userMessage = getPayload<string>(payloadKey, true) ?? "";
-        if (!userMessage.trim()) {
+        const payload = getPayload<InterruptPayload | string>(payloadKey, true);
+        const userMessage = typeof payload === "string" ? payload : payload?.text ?? "";
+        const slackFiles = typeof payload === "string" ? [] : payload?.files ?? [];
+
+        if (!userMessage.trim() && slackFiles.length === 0) {
+          await postInterruptPayloadMissingNotice(client, channelId, body.user.id, threadTs);
+          return;
+        }
+
+        const downloadedFiles = await downloadInterruptFiles(client, channelId, threadTs, slackFiles);
+        const prompt = userMessage.trim() || (downloadedFiles.length > 0 ? "Please analyze the attached file(s)." : "");
+        if (!prompt) {
           await postInterruptPayloadMissingNotice(client, channelId, body.user.id, threadTs);
           return;
         }
@@ -909,9 +981,10 @@ export function registerQuestionHandlers(app: App): void {
             threadTs: session.slackThreadTs,
             directory: session.directory,
             projectName: session.projectName,
-            prompt: userMessage,
+            prompt,
             sessionId: session.sessionId,
             autopilot: false,
+            files: downloadedFiles.length > 0 ? downloadedFiles : undefined,
           });
         } else if (workspace) {
           setupClaudeRunner({
@@ -920,8 +993,9 @@ export function registerQuestionHandlers(app: App): void {
             threadTs,
             directory: workspace.directory,
             projectName: workspace.projectName,
-            prompt: userMessage,
+            prompt,
             autopilot: false,
+            files: downloadedFiles.length > 0 ? downloadedFiles : undefined,
           });
         }
       } catch (error) {

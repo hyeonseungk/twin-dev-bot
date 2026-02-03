@@ -104,6 +104,7 @@ export function setupClaudeRunner(options: SetupClaudeRunnerOptions): void {
   let resultReceived = false;
   let resultPromise: Promise<void> | null = null;
   let completionHandled = false;
+  let errorHandled = false;
 
   // askUser/exitPlanMode ↔ exit 이벤트 간 레이스 컨디션 방지용 상태
   // handlerTakeover: askUser/exitPlanMode 핸들러가 비동기 작업 중임을 표시
@@ -452,6 +453,7 @@ export function setupClaudeRunner(options: SetupClaudeRunnerOptions): void {
   runner.on("error", safeAsync(async (error) => {
     await textBuffer.flush();
     unregisterRunner(threadTs, runner);
+    errorHandled = true;
 
     // ENOENT = claude 명령이 PATH에 없음 → 친절한 안내 메시지
     const isNotFound = (error as NodeJS.ErrnoException).code === "ENOENT";
@@ -473,6 +475,8 @@ export function setupClaudeRunner(options: SetupClaudeRunnerOptions): void {
       unregisterRunner(threadTs, runner);
       // null = kill()로 종료 (autopilot resume, askUser 대기 등) → 무시
       if (code === null) return;
+      // error 이벤트로 이미 알림 처리된 경우 중복 메시지 방지
+      if (errorHandled) return;
 
       // askUser/exitPlanMode 핸들러가 비동기 작업 중일 때 프로세스가 예상치 못하게 종료된 경우
       // → processExitedEarly 플래그로 핸들러에 알리고, 에러 처리는 여기서 수행

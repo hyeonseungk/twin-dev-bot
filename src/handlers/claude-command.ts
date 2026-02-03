@@ -246,12 +246,14 @@ async function handleTask(
     return;
   }
 
+  // workspace 등록 (스레드에 메시지 오면 Claude 세션 시작용)
+  // thread 안내 메시지 전송 전에 등록하여 레이스 컨디션 방지
+  addWorkspace(startResult.ts, { directory, projectName, channelId, autopilot });
+
   // 스레드에 안내 메시지
   const threadText = t("command.taskSuccess", { dirName: projectName }) + autopilotSuffix;
   await postThreadMessage(client, channelId, threadText, startResult.ts);
 
-  // workspace 등록 (스레드에 메시지 오면 Claude 세션 시작용)
-  addWorkspace(startResult.ts, { directory, projectName, channelId, autopilot });
   log.info("Task started", { projectName, directory, threadTs: startResult.ts, autopilot });
 }
 
@@ -520,6 +522,135 @@ async function showUsage(client: WebClient, channelId: string): Promise<void> {
 // 메인 커맨드 등록
 // ─────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────
+// 파일 다운로드 및 경고 메시지 전송 헬퍼
+// ─────────────────────────────────────────────────────────────────────────
+
+interface DownloadFilesResult {
+  files: DownloadedFile[];
+  hadErrors: boolean;
+}
+
+async function downloadAndNotify(
+  client: WebClient,
+  channelId: string,
+  threadTs: string,
+  slackFiles: SlackFileInfo[]
+): Promise<DownloadFilesResult> {
+  if (slackFiles.length === 0) {
+    return { files: [], hadErrors: false };
+  }
+
+  log.info("Message contains files, downloading", {
+    threadTs,
+    fileCount: slackFiles.length,
+    fileNames: slackFiles.map(f => f.name),
+  });
+
+  try {
+    const downloadResult = await downloadSlackFiles(slackFiles, config.slack.botToken);
+    const downloadedFiles = downloadResult.success;
+
+    // 실패/스킵된 파일 경고 메시지
+    const warnings: string[] = [];
+    for (const f of downloadResult.failed) {
+      warnings.push(`\u274C ${f.file.name}: ${f.error}`);
+    }
+    for (const f of downloadResult.skipped) {
+      warnings.push(`\u26A0\uFE0F ${f.file.name}: ${f.reason}`);
+    }
+
+    if (warnings.length > 0) {
+      await postThreadMessage(
+        client,
+        channelId,
+        `Some files could not be processed:\n${warnings.join("\n")}`,
+        threadTs
+      );
+    }
+
+    log.info("File download complete", {
+      threadTs,
+      successCount: downloadedFiles.length,
+      failedCount: downloadResult.failed.length,
+      skippedCount: downloadResult.skipped.length,
+    });
+
+    return { files: downloadedFiles, hadErrors: false };
+  } catch (error) {
+    log.error("Failed to download files", error);
+    await postThreadMessage(
+      client,
+      channelId,
+      `\u274C Failed to download attached files: ${error instanceof Error ? error.message : String(error)}`,
+      threadTs
+    );
+    return { files: [], hadErrors: true };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Claude 러너 설정 헬퍼
+// ─────────────────────────────────────────────────────────────────────────
+
+interface StartClaudeRunnerParams {
+  client: WebClient;
+  channelId: string;
+  threadTs: string;
+  directory: string;
+  projectName: string;
+  text: string;
+  userMessageTs: string;
+  autopilot?: boolean;
+  sessionId?: string;
+  slackFiles: SlackFileInfo[];
+}
+
+async function startClaudeRunner(params: StartClaudeRunnerParams): Promise<void> {
+  const { client, channelId, threadTs, directory, projectName, text, userMessageTs, autopilot, sessionId, slackFiles } = params;
+
+  // Race condition 방지: 이미 설정 중이면 무시
+  if (pendingSetups.has(threadTs)) {
+    log.debug("Setup already in progress for thread", { threadTs });
+    return;
+  }
+
+  pendingSetups.add(threadTs);
+  try {
+    // 파일 다운로드 (실제 러너 시작 직전에 수행)
+    const downloadResult = await downloadAndNotify(client, channelId, threadTs, slackFiles);
+    const downloadedFiles = downloadResult.files;
+
+    // 텍스트도 파일도 없으면 무시
+    const trimmedText = text.trim();
+    if (!trimmedText && downloadedFiles.length === 0) {
+      log.debug("Message has no text and no valid files, ignoring", { threadTs });
+      return;
+    }
+
+    // 파일만 있고 텍스트가 없으면 기본 프롬프트 사용
+    const prompt = trimmedText || (downloadedFiles.length > 0 ? "Please analyze the attached file(s)." : "");
+
+    setupClaudeRunner({
+      client,
+      channelId,
+      threadTs,
+      directory,
+      projectName,
+      prompt,
+      sessionId,
+      userMessageTs,
+      autopilot,
+      files: downloadedFiles.length > 0 ? downloadedFiles : undefined,
+    });
+  } catch (error) {
+    log.error("Failed to setup Claude runner", error);
+    await postThreadMessage(client, channelId, t("runner.errorOccurred", { error: error instanceof Error ? error.message : String(error) }), threadTs);
+  } finally {
+    pendingSetups.delete(threadTs);
+  }
+}
+
 export function registerClaudeCommand(app: App): void {
   // /twindevbot 명령어 처리 — 서브커맨드 라우터
   app.command("/twindevbot", async ({ ack, body, client }) => {
@@ -604,70 +735,22 @@ export function registerClaudeCommand(app: App): void {
       const userMessageTs = event.ts;
       const slackFiles = event.files || [];
 
-      // 파일 다운로드 (파일이 있는 경우)
-      let downloadedFiles: DownloadedFile[] = [];
-      if (slackFiles.length > 0) {
-        log.info("Message contains files, downloading", {
-          threadTs,
-          fileCount: slackFiles.length,
-          fileNames: slackFiles.map(f => f.name),
-        });
-
-        try {
-          const downloadResult = await downloadSlackFiles(slackFiles, config.slack.botToken);
-          downloadedFiles = downloadResult.success;
-
-          // 실패/스킵된 파일 경고 메시지
-          const warnings: string[] = [];
-          for (const f of downloadResult.failed) {
-            warnings.push(`\u274C ${f.file.name}: ${f.error}`);
-          }
-          for (const f of downloadResult.skipped) {
-            warnings.push(`\u26A0\uFE0F ${f.file.name}: ${f.reason}`);
-          }
-
-          if (warnings.length > 0) {
-            await postThreadMessage(
-              client,
-              event.channel,
-              `Some files could not be processed:\n${warnings.join("\n")}`,
-              threadTs
-            );
-          }
-
-          log.info("File download complete", {
-            threadTs,
-            successCount: downloadedFiles.length,
-            failedCount: downloadResult.failed.length,
-            skippedCount: downloadResult.skipped.length,
-          });
-        } catch (error) {
-          log.error("Failed to download files", error);
-          await postThreadMessage(
-            client,
-            event.channel,
-            `\u274C Failed to download attached files: ${error instanceof Error ? error.message : String(error)}`,
-            threadTs
-          );
-        }
-      }
-
-      // 텍스트도 파일도 없으면 무시
-      if (!text.trim() && downloadedFiles.length === 0) {
-        log.debug("Message has no text and no valid files, ignoring", { threadTs });
+      // 텍스트도 파일도 없으면 무시 (다운로드 전에 빠르게 체크)
+      if (!text.trim() && slackFiles.length === 0) {
+        log.debug("Message has no text and no files, ignoring", { threadTs });
         return;
       }
 
       // 러너가 실행 중이면 개입(interrupt) 확인 메시지를 전송
-      // autopilot 모드와 일반 모드를 구분하여 각각 다른 안내 메시지를 표시
+      // 파일 다운로드 전에 체크하여 불필요한 다운로드 방지
       if (isRunnerActive(threadTs)) {
         const existingSession = sessionManager.getByThread(threadTs);
         const workspace = getWorkspace(threadTs);
         const isAutopilot = existingSession?.autopilot || workspace?.autopilot;
 
-        // userMessage를 서버 사이드에 저장 (Slack action.value ~2,000바이트 제한 대응)
+        // userMessage와 첨부 파일을 서버 사이드에 저장 (Slack action.value ~2,000바이트 제한 대응)
         const interruptKey = `interrupt:${threadTs}:${userMessageTs}`;
-        setPayload(interruptKey, text);
+        setPayload(interruptKey, { text, files: slackFiles });
 
         const interruptValue = JSON.stringify({
           threadTs,
@@ -752,35 +835,18 @@ export function registerClaudeCommand(app: App): void {
           text,
         });
 
-        // Race condition 방지: 이미 설정 중이면 무시
-        if (pendingSetups.has(threadTs)) {
-          log.debug("Setup already in progress for thread", { threadTs });
-          return;
-        }
-
-        pendingSetups.add(threadTs);
-        try {
-          // 파일만 있고 텍스트가 없으면 기본 프롬프트 사용
-          const prompt = text.trim() || (downloadedFiles.length > 0 ? "Please analyze the attached file(s)." : "");
-          setupClaudeRunner({
-            client,
-            channelId: session.slackChannelId,
-            threadTs: session.slackThreadTs,
-            directory: session.directory,
-            projectName: session.projectName,
-            prompt,
-            sessionId: session.sessionId,
-            userMessageTs,
-            autopilot: session.autopilot,
-            files: downloadedFiles.length > 0 ? downloadedFiles : undefined,
-          });
-          // setupClaudeRunner는 동기 함수이며 runner 등록까지 완료됨
-          pendingSetups.delete(threadTs);
-        } catch (error) {
-          pendingSetups.delete(threadTs);
-          log.error("Failed to setup Claude runner for session resume", error);
-          await postThreadMessage(client, event.channel, t("runner.errorOccurred", { error: error instanceof Error ? error.message : String(error) }), threadTs);
-        }
+        await startClaudeRunner({
+          client,
+          channelId: session.slackChannelId,
+          threadTs: session.slackThreadTs,
+          directory: session.directory,
+          projectName: session.projectName,
+          text,
+          userMessageTs,
+          autopilot: session.autopilot,
+          sessionId: session.sessionId,
+          slackFiles,
+        });
         return;
       }
 
@@ -791,37 +857,20 @@ export function registerClaudeCommand(app: App): void {
           projectName: workspace.projectName,
           threadTs,
           text,
-          fileCount: downloadedFiles.length,
+          fileCount: slackFiles.length,
         });
 
-        // Race condition 방지: 이미 설정 중이면 무시
-        if (pendingSetups.has(threadTs)) {
-          log.debug("Setup already in progress for thread", { threadTs });
-          return;
-        }
-
-        pendingSetups.add(threadTs);
-        try {
-          // 파일만 있고 텍스트가 없으면 기본 프롬프트 사용
-          const prompt = text.trim() || (downloadedFiles.length > 0 ? "Please analyze the attached file(s)." : "");
-          setupClaudeRunner({
-            client,
-            channelId: workspace.channelId,
-            threadTs,
-            directory: workspace.directory,
-            projectName: workspace.projectName,
-            prompt,
-            userMessageTs,
-            autopilot: workspace.autopilot,
-            files: downloadedFiles.length > 0 ? downloadedFiles : undefined,
-          });
-          // setupClaudeRunner는 동기 함수이며 runner 등록까지 완료됨
-          pendingSetups.delete(threadTs);
-        } catch (error) {
-          pendingSetups.delete(threadTs);
-          log.error("Failed to setup Claude runner for new workspace session", error);
-          await postThreadMessage(client, event.channel, t("runner.errorOccurred", { error: error instanceof Error ? error.message : String(error) }), threadTs);
-        }
+        await startClaudeRunner({
+          client,
+          channelId: workspace.channelId,
+          threadTs,
+          directory: workspace.directory,
+          projectName: workspace.projectName,
+          text,
+          userMessageTs,
+          autopilot: workspace.autopilot,
+          slackFiles,
+        });
         return;
       }
 
@@ -829,10 +878,12 @@ export function registerClaudeCommand(app: App): void {
       log.debug("No session or workspace found for thread", { threadTs });
       if (event.user) {
         try {
+          const channelDir = getChannelDir(event.channel);
+          const projectName = channelDir?.projectName;
           await client.chat.postEphemeral({
             channel: event.channel,
             user: event.user,
-            text: t("session.expired"),
+            text: projectName ? t("session.expired", { projectName }) : t("session.expiredUnknown"),
             thread_ts: threadTs,
           });
         } catch (ephemeralError) {

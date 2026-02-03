@@ -7,7 +7,6 @@ import type {
   ClaudeAssistantMessage,
   ClaudeResultEvent,
 } from "../types/claude-stream.js";
-import type { ClaudeContentBlock } from "../utils/claude-content-builder.js";
 import { buildStreamJsonMessage } from "../utils/claude-content-builder.js";
 import type { DownloadedFile } from "../utils/slack-file-downloader.js";
 
@@ -121,16 +120,39 @@ export class ClaudeRunner extends EventEmitter {
 
     // 파일이 있으면 stdin에 stream-json 메시지 작성 후 닫기
     if (hasFiles && this.process.stdin) {
+      const stdin = this.process.stdin;
       const message = buildStreamJsonMessage(this.options.prompt, this.options.files!);
+
       log.info("Writing stream-json message to stdin", {
         messageLength: message.length,
         fileNames: this.options.files!.map(f => f.name),
         fileSizes: this.options.files!.map(f => f.data.length),
-        messagePreview: message.slice(0, 200) + "...",
       });
-      this.process.stdin.write(message + "\n");
-      this.process.stdin.end();
-      log.info("stdin write complete and closed");
+
+      // stdin 에러 핸들러 등록
+      stdin.on("error", (err) => {
+        log.error("stdin write error", { error: err.message });
+        this.emit("error", err);
+      });
+
+      // 쓰기 시도
+      const writeSuccess = stdin.write(message + "\n", "utf-8", (err) => {
+        if (err) {
+          log.error("stdin write callback error", { error: err.message });
+          this.emit("error", err);
+          return;
+        }
+        stdin.end();
+        log.info("stdin write complete and closed");
+      });
+
+      // 버퍼가 가득 찼으면 drain 대기
+      if (!writeSuccess) {
+        log.debug("stdin buffer full, waiting for drain");
+        stdin.once("drain", () => {
+          log.debug("stdin drained");
+        });
+      }
     }
 
     let buffer = "";

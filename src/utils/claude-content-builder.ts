@@ -5,7 +5,6 @@ import {
   isTextFile,
   type DownloadedFile,
 } from "./slack-file-downloader.js";
-import type { SlackFileInfo } from "../types/index.js";
 
 const log = createLogger("claude-content-builder");
 
@@ -64,7 +63,7 @@ function fileToContentBlock(file: DownloadedFile): ClaudeContentBlock | null {
   }
 
   // PDF 파일
-  if (isPdfFile(file.mimetype)) {
+  if (isPdfFile(file.mimetype, file.name)) {
     return {
       type: "document",
       source: {
@@ -75,18 +74,8 @@ function fileToContentBlock(file: DownloadedFile): ClaudeContentBlock | null {
     };
   }
 
-  // 텍스트 파일 - SlackFileInfo 형식으로 변환하여 isTextFile 호출
-  const mockFileInfo: SlackFileInfo = {
-    id: "",
-    name: file.name,
-    mimetype: file.mimetype,
-    filetype: "",
-    url_private: "",
-    url_private_download: "",
-    size: file.data.length,
-  };
-
-  if (isTextFile(mockFileInfo)) {
+  // 텍스트 파일
+  if (isTextFile(file.mimetype, file.name)) {
     try {
       const textContent = file.data.toString("utf-8");
       return {
