@@ -69,3 +69,14 @@ export interface InitCustomDirModalMetadata {
   channelId: string;
   originalMessageTs: string;
 }
+
+// Slack 파일 정보 타입
+export interface SlackFileInfo {
+  id: string;
+  name: string;
+  mimetype: string;
+  filetype: string;
+  url_private: string;
+  url_private_download: string;
+  size: number;
+}

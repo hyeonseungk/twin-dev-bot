@@ -21,6 +21,7 @@ import { removeWorkspace } from "../stores/workspace-store.js";
 import { config } from "../core/config.js";
 import { initPendingBatch } from "../stores/pending-questions.js";
 import { setPayload } from "../stores/action-payload-store.js";
+import type { DownloadedFile } from "../utils/slack-file-downloader.js";
 
 const log = createLogger("claude-runner-setup");
 
@@ -74,13 +75,14 @@ export interface SetupClaudeRunnerOptions {
   sessionId?: string;
   userMessageTs?: string;
   autopilot?: boolean;
+  files?: DownloadedFile[]; // 첨부 파일 (Slack에서 다운로드된)
 }
 
 /**
  * Claude 실행 및 이벤트 핸들러 설정
  */
 export function setupClaudeRunner(options: SetupClaudeRunnerOptions): void {
-  const { client, channelId, threadTs, directory, projectName, prompt, sessionId, userMessageTs, autopilot } = options;
+  const { client, channelId, threadTs, directory, projectName, prompt, sessionId, userMessageTs, autopilot, files } = options;
 
   // threadTs 유효성 검사
   if (!threadTs) {
@@ -121,6 +123,7 @@ export function setupClaudeRunner(options: SetupClaudeRunnerOptions): void {
     directory,
     prompt,
     sessionId,
+    files,
   });
 
   // 활성 러너 등록 (동시 실행 방지 + 비활성 타임아웃)

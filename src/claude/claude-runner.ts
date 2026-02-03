@@ -7,6 +7,9 @@ import type {
   ClaudeAssistantMessage,
   ClaudeResultEvent,
 } from "../types/claude-stream.js";
+import type { ClaudeContentBlock } from "../utils/claude-content-builder.js";
+import { buildStreamJsonMessage } from "../utils/claude-content-builder.js";
+import type { DownloadedFile } from "../utils/slack-file-downloader.js";
 
 const log = createLogger("claude-runner");
 
@@ -14,6 +17,7 @@ export interface ClaudeRunnerOptions {
   directory: string;
   prompt: string;
   sessionId?: string; // 있으면 --resume 사용
+  files?: DownloadedFile[]; // 첨부 파일 (있으면 stream-json 입력 모드 사용)
 }
 
 export interface AskUserQuestionInput {
@@ -76,12 +80,22 @@ export class ClaudeRunner extends EventEmitter {
   }
 
   run(): void {
-    const args = [
-      "-p", this.options.prompt,
-      "--output-format", "stream-json",
-      "--verbose",
-      "--dangerously-skip-permissions",
-    ];
+    const hasFiles = this.options.files && this.options.files.length > 0;
+
+    // 파일이 있으면 stream-json 입력 모드 사용, 없으면 기존 -p 방식
+    const args = hasFiles
+      ? [
+          "--input-format", "stream-json",
+          "--output-format", "stream-json",
+          "--verbose",
+          "--dangerously-skip-permissions",
+        ]
+      : [
+          "-p", this.options.prompt,
+          "--output-format", "stream-json",
+          "--verbose",
+          "--dangerously-skip-permissions",
+        ];
 
     // 세션 ID가 있으면 --resume 추가
     if (this.options.sessionId) {
@@ -92,13 +106,32 @@ export class ClaudeRunner extends EventEmitter {
       directory: this.options.directory,
       prompt: this.options.prompt,
       sessionId: this.options.sessionId || "new",
+      hasFiles,
+      fileCount: this.options.files?.length || 0,
     });
+
+    // 파일이 있으면 stdin을 pipe로, 없으면 ignore로 설정
+    const stdinMode = hasFiles ? "pipe" : "ignore";
 
     this.process = spawn("claude", args, {
       cwd: this.options.directory,
-      stdio: ["ignore", "pipe", "pipe"],  // stdin은 ignore로 설정 (pipe로 하면 Claude가 입력 대기 상태가 됨)
+      stdio: [stdinMode, "pipe", "pipe"],
       shell: process.platform === "win32", // Windows에서 .cmd/.exe PATH 해석에 필요
     });
+
+    // 파일이 있으면 stdin에 stream-json 메시지 작성 후 닫기
+    if (hasFiles && this.process.stdin) {
+      const message = buildStreamJsonMessage(this.options.prompt, this.options.files!);
+      log.info("Writing stream-json message to stdin", {
+        messageLength: message.length,
+        fileNames: this.options.files!.map(f => f.name),
+        fileSizes: this.options.files!.map(f => f.data.length),
+        messagePreview: message.slice(0, 200) + "...",
+      });
+      this.process.stdin.write(message + "\n");
+      this.process.stdin.end();
+      log.info("stdin write complete and closed");
+    }
 
     let buffer = "";
 
