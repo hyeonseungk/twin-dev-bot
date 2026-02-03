@@ -1,4 +1,4 @@
-# TwinDevBot
+# TwinDevBot - Better optimized for Slack than OpenClaw
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/hyeonseungk/twin-dev-bot/main/asset/logo.png" alt="TwinDevBot" width="150" />
