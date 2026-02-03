@@ -18,6 +18,7 @@
     "prepublishOnly": "npm run build",
     "dev:server": "tsx src/server.ts",
     "start:server": "node dist/server.js",
+    "stop": "node dist/cli.js stop",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
